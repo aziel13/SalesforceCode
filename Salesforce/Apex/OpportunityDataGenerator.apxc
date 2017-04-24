@@ -1,0 +1,178 @@
+// This application allows for generation of an opportunity with variable number of contacts, accounts, notes, attachements, events, and tasks.
+public class OpportunityDataGenerator {
+	
+    private list<string> firstNames;
+    
+    public list<string> GetFirstNames() {
+        
+        if(firstNames == null) {
+            firstNames = new list<string>();
+            
+          String  firstNamesString  = 'Abbey, Lyn, Joel, Larissa, Mollie, Myrtie,Antone,Ruthe' 
+                + ',Rueben,Robyn,Eliseo,Kemberly,Roy,Armida,Marget,Michaela,Amee'
+                +',Bianca,Lanette,Elease,Britt,Sidney,Jung,Tran,Micaela,Kurtis,Indira' 
+                + ',Hershel,Hana,Elias,Georgianne,Awilda,Leslie,Lavenia,Lenora,Suzy,Rickie,Myron'
+                +',Tonja,Marjory,Krista,Weston,Mirtha,Keitha,Pearly,Valarie,Tia,Estelle,Rashida,Latonia';
+			
+            for(String key : firstNamesString.split(',')) {
+                firstNames.add(key);
+            }
+        }
+        
+        return firstNames;
+    }
+  
+    
+    private list<string> lastNames;
+    
+    public list<string> GetLastNames() {
+        
+        if(lastNames == null) {
+            lastNames = new list<string>();
+            
+          String  lastNamesString  = 'Mcpherson, Fernandez, Bray, Cooke, Kirk, Hampton, Singleton, Henson,'+
+                                        'Mcintyre, Fisher, Boyd, Phillips, Acevedo, Wilkinson, Stout, Herring, Hahn,'+
+                                        'Rosales, Morton, Mayo, Bryan, Shannon, Graham, Noble, Keith, Henry,'+
+                                        'Barron, Boyle, Page, Gentry, Mayer, Bates, Mooney, Castro, Avila,'+
+                                        'Livingston, Clarke, Estes, Matthews, Beasley, Nicholson, Pope,'+
+                                        'Hayden, Quinn, Serrano, Willis, Mcmillan, Oliver, Bird, Hamilton';
+			
+            for(String key : lastNamesString.split(',')) {
+                lastNames.add(key);
+            }
+        }
+        
+        return lastNames;
+    }
+    
+    // a generated opportunity should be able to be created by creating a lead and having salesforce
+    // convert it into an opportunity. 
+    public static void MakeOpp() {
+        
+         try {
+            OpportunityDataGenerator opGen = new OpportunityDataGenerator();
+            
+        	lead NewLead = new lead(LastName = opGen.GenerateRandomName('first'), FirstName = opGen.GenerateRandomName('last'),Company = 'Temple University' );
+        	insert NewLead;
+            
+            system.debug('NewLead.id' + NewLead.id);
+            // assign a random number of tasks to the newly created lead
+            for(integer i = 0; i < Math.round(Math.random()*50); i++) {
+                 opGen.generatedTaskForLead(NewLead.id);
+            }
+            // assign a random number of events to the newly created lead
+            for(integer i = 0; i < Math.round(Math.random()*50); i++) {
+                 opGen.generatedEventForLead(NewLead.id);
+            }
+            
+			Database.LeadConvert lc = new Database.LeadConvert();
+			lc.setLeadId(NewLead.id);
+
+			LeadStatus convertStatus = [SELECT Id, MasterLabel FROM LeadStatus WHERE IsConverted=true LIMIT 1];
+			lc.setConvertedStatus(convertStatus.MasterLabel);
+			
+            Database.LeadConvertResult lcr = Database.convertLead(lc);
+			System.assert(lcr.isSuccess());
+			
+         	NewLead = [Select id,ConvertedOpportunityId  from lead where id =: NewLead.id];
+            // 
+            // assign a random number of notes
+            for(integer i = 0; i < Math.round(Math.random()*50); i++) {
+				opGen.generatedNoteForOpp(NewLead.ConvertedOpportunityId);
+			}
+            // assign a random number of attachments
+            for(integer i = 0; i < Math.round(Math.random()*50); i++) {
+				opGen.generatedAttachmentForOpp (NewLead.ConvertedOpportunityId);
+            }
+             
+	             
+        } catch (Exception e) {
+            
+            system.debug('Make Opp Failed:' + e);
+            
+        }
+        
+    }
+   
+    // generate a random name based on what type of field this will fill
+    public string GenerateRandomName(string type) {
+        return (type == 'first') ? GetFirstNames().get(Math.round(Math.random()*50)) : GetLastNames().get(Math.round(Math.random()*50));
+    } 
+     
+    // creates a task and connects it to the provided id
+    public void generatedTaskForLead (id leadId) {
+        // create a new task assigned to the lead id with a randomized subject
+        task newTask = new task(whoid = leadId,Subject = 'Call '+ GenerateRandomName('first') + ' ' + GenerateRandomName('last'));
+		
+        // try to insert the newly created task
+        try {
+            
+            insert newTask;
+            system.debug('Task ' +newTask.id + ' Created for Lead with id: ' +  leadId);
+        } catch (Exception e) {
+            
+            system.debug('generatedTaskForLead failed:' + e);
+            
+        }
+       	
+    }
+    
+    // creates a event and connects it to the provided id
+    public void generatedEventForLead (id leadId) {
+        // create a new event with a randomized subject and assign it to the lead
+        event newEvent = new event(whoid = leadId, Subject = 'Meet with '+ GenerateRandomName('first') + ' ' + GenerateRandomName('last'), StartDateTime = DateTime.now(), EndDateTime = DateTime.now() + 1);
+		
+        // try to insert the newly created event
+        try {
+            
+            insert newEvent;
+            system.debug('newEvent' + newEvent);
+            
+            
+        } catch (Exception e) {
+            
+            system.debug('generatedEventForLead failed:' + e);
+            
+        }
+       	
+    }
+    
+    // creates a note and connects it to the provided id
+    public void generatedNoteForOpp (id prntId) {
+        // create a new event with a randomized subject and assign it to the lead
+        Note newNote = new note(ParentId = prntId, Body = 'Something about '+ GenerateRandomName('first') + ' ' + GenerateRandomName('last'), Title = 'Test Note');
+		
+        // try to insert the newly created task
+        try {
+            
+            insert newNote;
+            
+        } catch (Exception e) {
+            
+            system.debug('generatedTaskForLead failed:' + e);
+            
+        }
+       	
+    }
+    
+    // creates a note and connects it to the provided id
+    public void generatedAttachmentForOpp (id prntId) {
+        Blob AttachmentBody = Blob.valueOf('Something about '+ GenerateRandomName('first') + ' ' + GenerateRandomName('last'));
+        
+        // create a new event with a randomized subject and assign it to the lead
+        Attachment newAttachment = new Attachment(ParentId = prntId, Body = AttachmentBody, name = 'testAttachment');
+		
+        // try to insert the newly created task
+        try {
+            
+            insert newAttachment;
+            
+        } catch (Exception e) {
+            
+            system.debug('generatedTaskForLead failed:' + e);
+            
+        }
+       	
+    }
+    
+}
